@@ -4,13 +4,30 @@ import os
 
 # Wise API credentials
 API_TOKEN = os.getenv('WISE_API_TOKEN')
-PROFILE_ID = os.getenv('WISE_PROFILE_ID')
 
 # Wise API endpoint
-BASE_URL = 'https://api.transferwise.com'
+BASE_URL = 'https://api.wise.com'
 
-def get_transactions(start_date, end_date):
-    endpoint = f"{BASE_URL}/v1/profiles/{PROFILE_ID}/transactions"
+def get_user_profile():
+    endpoint = f"{BASE_URL}/v2/profiles"
+    headers = {
+        'Authorization': f'Bearer {API_TOKEN}',
+        'Content-Type': 'application/json'
+    }
+    
+    response = requests.get(endpoint, headers=headers)
+    
+    if response.status_code == 200:
+        profiles = response.json()
+        # Assuming we want the first personal profile
+        personal_profile = next((profile for profile in profiles if profile['type'] == 'personal'), None)
+        return personal_profile['id'] if personal_profile else None
+    else:
+        print(f"Error fetching profile: {response.status_code} - {response.text}")
+        return None
+
+def get_transactions(profile_id, start_date, end_date):
+    endpoint = f"{BASE_URL}/v3/profiles/{profile_id}/transactions"
     
     headers = {
         'Authorization': f'Bearer {API_TOKEN}',
@@ -18,12 +35,9 @@ def get_transactions(start_date, end_date):
     }
     
     params = {
-        'interval': 'MONTH',
-        'offset': 0,
-        'limit': 100,  # Adjust based on Wise's pagination limits
-        'type': 'TRANSACTIONS',
-        'createdDateStart': start_date.isoformat(),
-        'createdDateEnd': end_date.isoformat()
+        'intervalStart': start_date.isoformat(),
+        'intervalEnd': end_date.isoformat(),
+        'type': 'TRANSACTIONS'
     }
     
     all_transactions = []
@@ -32,13 +46,14 @@ def get_transactions(start_date, end_date):
         response = requests.get(endpoint, headers=headers, params=params)
         
         if response.status_code == 200:
-            transactions = response.json()
+            data = response.json()
+            transactions = data.get('items', [])
             all_transactions.extend(transactions)
             
-            if len(transactions) < params['limit']:
+            if 'nextPage' not in data:
                 break
             
-            params['offset'] += params['limit']
+            params['page'] = data['nextPage']
         else:
             print(f"Error: {response.status_code} - {response.text}")
             break
@@ -46,15 +61,20 @@ def get_transactions(start_date, end_date):
     return all_transactions
 
 def main():
+    profile_id = get_user_profile()
+    if not profile_id:
+        print("Failed to retrieve user profile.")
+        return
+
     # Set the date range for fetching transactions
     end_date = datetime.now()
     start_date = end_date - timedelta(days=30)  # Fetch last 30 days of transactions
     
-    transactions = get_transactions(start_date, end_date)
+    transactions = get_transactions(profile_id, start_date, end_date)
     
     print(f"Fetched {len(transactions)} transactions")
     for transaction in transactions:
-        print(f"Date: {transaction['date']}, Amount: {transaction['amount']}, Description: {transaction['description']}")
+        print(f"Date: {transaction['date']}, Amount: {transaction['amount']['value']} {transaction['amount']['currency']}, Description: {transaction['details']['description']}")
 
 if __name__ == "__main__":
     main()
