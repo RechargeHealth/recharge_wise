@@ -3,3 +3,5 @@ curl -X GET \
   -H 'Authorization: Bearer YOUR_SANDBOX_API_TOKEN'
 
   curl -X GET "https://api.sandbox.transferwise.tech/v1/profiles/YOUR_PROFILE_ID/transactions?intervalStart=2023-08-01T00:00:00.000Z&intervalEnd=2023-08-31T23:59:59.999Z" -H "Authorization: Bearer YOUR_SANDBOX_API_TOKEN"
+
+curl.exe -X GET "https://api.sandbox.transferwise.tech/v3/profiles/{profileId}/balance-statements" \ -H "Authorization: Bearer YOUR_SANDBOX_API_TOKEN"
